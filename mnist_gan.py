@@ -94,7 +94,20 @@ H = Flatten()(H)
 H = Dense(256)(H)
 H = LeakyReLU(0.2)(H)
 H = Dropout(dropout_rate)(H)
-d_V = Dense(2,activation='softmax')(H)
+
+# Minibatch Discrim
+# Reference: https://arxiv.org/abs/1606.03498
+B = 40
+C = 40
+H_mbd = Dense(B * C)(H)
+H_mbd = Reshape((B, C))(H_mbd)
+def minbatch(x):
+    L1 = K.sum(K.abs(K.expand_dims(x, 0) - K.expand_dims(x, 1)), axis=-1)
+    return K.sum(K.exp(-L1), axis=1)
+H_mbd = Lambda(minbatch, output_shape=(B,))(H_mbd)
+H = merge([H, H_mbd], 'concat')
+
+d_V = Dense(2, activation='softmax')(H)
 discriminator = Model(d_input,d_V)
 discriminator.compile(loss='categorical_crossentropy', optimizer=dopt)
 discriminator.summary()
